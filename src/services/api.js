@@ -1,7 +1,7 @@
-// src/services/api.js
 export const fetchAkilimoData = async (credentials) => {
     try {
-      const response = await fetch(`/api/stats/requests`, {
+      // Set size to total number of records (120539 from what we saw earlier)
+      const response = await fetch(`/api/stats/requests?size=150000`, {
         method: 'GET',
         headers: {
           'Authorization': 'Basic ' + btoa(`${credentials.username}:${credentials.password}`),
@@ -25,3 +25,4 @@ export const fetchAkilimoData = async (credentials) => {
       throw error;
     }
   };
+  
