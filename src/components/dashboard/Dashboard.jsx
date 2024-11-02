@@ -1,20 +1,21 @@
 // src/components/Dashboard.jsx
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '../../lib/auth';
 import { fetchAkilimoData } from '../../services/api';
+//import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { MapPin, Users, Activity, Calendar } from 'lucide-react';
 import StatsCard from '../dashboard/StatsCard';
-import { MapPin, Users, Calendar, Activity } from 'lucide-react';
 import UseCaseChart from '../dashboard/UseCaseChart';
 import CountryChart from '../dashboard/CountryChart';
 import UserTypeChart from '../dashboard/UserTypeChart';
 import TimelineChart from '../dashboard/TimelineChart';
-import Pagination from './Pagination';
 
 const Dashboard = () => {
-  const [currentPage, setCurrentPage] = useState(0);
+  const credentials = useAuthStore((state) => state.credentials);
   const { data, isLoading, error } = useQuery({
     queryKey: ['akilimoData'],
-    queryFn: fetchAkilimoData,
+    queryFn: () => fetchAkilimoData(credentials),
   });
 
   const processData = (rawData) => {
@@ -42,10 +43,10 @@ const Dashboard = () => {
     return stats;
   };
 
-  const stats = processData(data);
-
   if (isLoading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   if (error) return <div className="flex items-center justify-center min-h-screen">Error: {error.message}</div>;
+
+  const stats = processData(data);
   if (!stats) return null;
 
   return (
@@ -92,12 +93,6 @@ const Dashboard = () => {
         <UserTypeChart data={stats.userTypeStats} />
         <TimelineChart data={stats.requestsByDate} />
       </div>
-
-      <Pagination
-        currentPage={currentPage}
-        totalPages={data.totalPages}
-        onPageChange={setCurrentPage}
-      />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 // src/components/Login.jsx
 import React, { useState } from 'react';
 import { useAuthStore } from '../lib/auth';
+import { fetchAkilimoData } from '../services/api';
 
 const Login = () => {
   const [credentials, setCredentials] = useState({ username: '', password: '' });
@@ -13,41 +14,19 @@ const Login = () => {
     setError('');
     setIsLoading(true);
 
+    console.log('Attempting login with credentials:', {
+      username: credentials.username,
+      passwordLength: credentials.password?.length
+    });
+
     try {
-      // Log the request for debugging (remove in production)
-      console.log('Attempting login with:', credentials);
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials),
-      });
-
-      // Log the response status for debugging (remove in production)
-      console.log('Response status:', response.status);
-
-      const data = await response.json();
+      // Test the credentials
+      await fetchAkilimoData(credentials);
       
-      // Log the response data for debugging (remove in production)
-      console.log('Response data:', data);
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      // Assuming the token is in the response data
-      // Modify this according to your API response structure
-      const token = data.token || data.access_token || data.accessToken;
-      
-      if (!token) {
-        throw new Error('No token received');
-      }
-
-      login(token);
+      console.log('Login successful');
+      login(credentials);
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('Login failed:', err);
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
@@ -62,7 +41,7 @@ const Login = () => {
             AKILIMO Dashboard
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Please sign in to continue
+            Enter your credentials to view the dashboard
           </p>
         </div>
         {error && (
@@ -82,7 +61,10 @@ const Login = () => {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Username"
                 value={credentials.username}
-                onChange={(e) => setCredentials(prev => ({...prev, username: e.target.value}))}
+                onChange={(e) => {
+                  const value = e.target.value.trim();
+                  setCredentials(prev => ({...prev, username: value}));
+                }}
               />
             </div>
             <div>
@@ -95,7 +77,10 @@ const Login = () => {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Password"
                 value={credentials.password}
-                onChange={(e) => setCredentials(prev => ({...prev, password: e.target.value}))}
+                onChange={(e) => {
+                  const value = e.target.value.trim();
+                  setCredentials(prev => ({...prev, password: value}));
+                }}
               />
             </div>
           </div>
