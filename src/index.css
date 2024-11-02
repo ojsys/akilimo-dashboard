@@ -3,6 +3,23 @@
 @tailwind utilities;
 
 :root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+
+/* @tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
   --background: 0 0% 100%;
   --foreground: 222.2 47.4% 11.2%;
   --muted: 210 40% 96.1%;
@@ -17,4 +34,4 @@
   --secondary-foreground: 222.2 47.4% 11.2%;
   --ring: 215 20.2% 65.1%;
   --radius: 0.5rem;
-}
+} */
