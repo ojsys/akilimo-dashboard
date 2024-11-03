@@ -1,127 +1,134 @@
 // src/components/Dashboard.jsx
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../lib/auth';
 import { fetchAkilimoData } from '../../services/api';
-import { MapPin, Users, Activity, Calendar, LogOut } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { MapPin, Users, Activity, Calendar, LogOut, Download } from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell, LineChart, Line, Legend
+} from 'recharts';
 
-// Loading Progress Component
-const LoadingProgress = () => {
-  return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mb-4"></div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Complete Dataset</h3>
-          <p className="text-gray-500 text-center mb-4">
-            Please wait while we fetch all records. This may take a few moments...
-          </p>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div className="animate-pulse bg-blue-500 h-2 rounded-full w-full"></div>
-          </div>
-        </div>
-      </div>
+// Components
+const StatsCard = ({ title, value, icon: Icon, description }) => (
+  <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+    <div className="flex items-center justify-between">
+      <h3 className="text-sm font-medium text-gray-500">{title}</h3>
+      {Icon && <Icon className="h-5 w-5 text-gray-400" />}
     </div>
-  );
-};
+    <div className="mt-2">
+      <p className="text-3xl font-semibold text-gray-900">{value}</p>
+      {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
+    </div>
+  </div>
+);
 
-// Stats Card Component
-const StatsCard = ({ title, value, icon: Icon, description }) => {
-  return (
-    <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-        {Icon && <Icon className="h-5 w-5 text-gray-400" />}
-      </div>
-      <div className="mt-2">
-        <p className="text-3xl font-semibold text-gray-900">{value}</p>
-        {description && (
-          <p className="mt-1 text-sm text-gray-500">{description}</p>
-        )}
-      </div>
+const ChartCard = ({ title, children }) => (
+  <div className="bg-white rounded-lg shadow p-6">
+    <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
+    <div className="h-[300px]">
+      {children}
     </div>
-  );
-};
-
-// Chart Card Component
-const ChartCard = ({ title, children }) => {
-  return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
-      <div className="h-[300px]">
-        {children}
-      </div>
-    </div>
-  );
-};
+  </div>
+);
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 const Dashboard = () => {
-  const credentials = useAuthStore((state) => state.credentials);
-  const logout = useAuthStore((state) => state.logout);
+  const { credentials, logout } = useAuthStore();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['akilimoData'],
     queryFn: () => fetchAkilimoData(credentials),
-    enabled: Boolean(credentials?.username && credentials?.password),
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
-    cacheTime: 30 * 60 * 1000, // Keep data in cache for 30 minutes
+    enabled: !!credentials?.username && !!credentials?.password,
   });
 
-  const processData = (rawData) => {
-    if (!rawData?.content) return null;
-    
-    const stats = {
-      requestsByDate: {},
+  const stats = useMemo(() => {
+    if (!data?.content) return null;
+
+    const result = {
+      totalRequests: data.content.length,
       countryStats: {},
       useCaseStats: {},
       userTypeStats: {},
-      totalRequests: rawData.content.length,
-      totalPages: rawData.totalPages
+      genderStats: {},
+      timelineStats: {},
     };
-    
-    rawData.content.forEach(entry => {
-      // Process dates
-      const date = entry.requestDate.split('T')[0];
-      stats.requestsByDate[date] = (stats.requestsByDate[date] || 0) + 1;
+
+    data.content.forEach(record => {
+      // Country stats
+      result.countryStats[record.countryCode] = (result.countryStats[record.countryCode] || 0) + 1;
       
-      // Process countries
-      stats.countryStats[entry.countryCode] = (stats.countryStats[entry.countryCode] || 0) + 1;
+      // Use case stats
+      result.useCaseStats[record.useCase] = (result.useCaseStats[record.useCase] || 0) + 1;
       
-      // Process use cases
-      stats.useCaseStats[entry.useCase] = (stats.useCaseStats[entry.useCase] || 0) + 1;
+      // User type stats
+      result.userTypeStats[record.userType] = (result.userTypeStats[record.userType] || 0) + 1;
       
-      // Process user types
-      stats.userTypeStats[entry.userType] = (stats.userTypeStats[entry.userType] || 0) + 1;
+      // Gender stats
+      result.genderStats[record.gender] = (result.genderStats[record.gender] || 0) + 1;
+      
+      // Timeline stats (by month)
+      const date = new Date(record.requestDate);
+      const monthYear = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+      result.timelineStats[monthYear] = (result.timelineStats[monthYear] || 0) + 1;
     });
 
-    return stats;
-  };
+    return result;
+  }, [data]);
 
+  // Loading state
   if (isLoading) {
-    return <LoadingProgress />;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+          <p className="text-gray-600">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
   }
 
+  // Error state
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded">
           <p className="font-bold">Error loading data:</p>
           <p>{error.message}</p>
+          <button 
+            onClick={logout}
+            className="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+          >
+            Return to Login
+          </button>
         </div>
       </div>
     );
   }
 
-  const stats = processData(data);
   if (!stats) return null;
 
   // Prepare chart data
-  const countryData = Object.entries(stats.countryStats).map(([name, value]) => ({ name, value }));
-  const useCaseData = Object.entries(stats.useCaseStats).map(([name, value]) => ({ name, value }));
-  const userTypeData = Object.entries(stats.userTypeStats).map(([name, value]) => ({ name, value }));
+  const countryData = Object.entries(stats.countryStats)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  const useCaseData = Object.entries(stats.useCaseStats)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  const userTypeData = Object.entries(stats.userTypeStats)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  const genderData = Object.entries(stats.genderStats)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  const timelineData = Object.entries(stats.timelineStats)
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -131,12 +138,12 @@ const Dashboard = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">AKILIMO Dashboard</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Analyzing {stats.totalRequests.toLocaleString()} total farmer requests
+              Analyzing {stats.totalRequests.toLocaleString()} farmer requests
             </p>
           </div>
           <button
             onClick={logout}
-            className="flex items-center px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+            className="flex items-center px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logout
@@ -161,18 +168,32 @@ const Dashboard = () => {
             title="User Types"
             value={Object.keys(stats.userTypeStats).length}
             icon={Users}
-            description="Various user categories"
+            description="Different user categories"
           />
           <StatsCard
             title="Use Cases"
             value={Object.keys(stats.useCaseStats).length}
             icon={Calendar}
-            description="Different types of requests"
+            description="Types of requests"
           />
         </div>
 
         {/* Charts Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Timeline Chart */}
+          <ChartCard title="Request Timeline">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={timelineData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" angle={-45} textAnchor="end" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="count" stroke="#8884d8" />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* Country Distribution */}
           <ChartCard title="Requests by Country">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={countryData}>
@@ -185,6 +206,7 @@ const Dashboard = () => {
             </ResponsiveContainer>
           </ChartCard>
 
+          {/* Use Case Distribution */}
           <ChartCard title="Use Case Distribution">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -207,6 +229,7 @@ const Dashboard = () => {
             </ResponsiveContainer>
           </ChartCard>
 
+          {/* User Types Distribution */}
           <ChartCard title="User Types Distribution">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -229,63 +252,77 @@ const Dashboard = () => {
             </ResponsiveContainer>
           </ChartCard>
 
+          {/* Gender Distribution */}
+          <ChartCard title="Gender Distribution">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={genderData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {genderData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* Detailed Statistics */}
           <ChartCard title="Summary Statistics">
             <div className="h-full overflow-auto p-4">
-              <div className="grid grid-cols-2 gap-8">
-                {/* Use Cases Summary Table */}
+              <div className="space-y-6">
+                {/* Countries */}
                 <div>
-                  <h4 className="font-medium text-gray-700 mb-4">Use Cases Breakdown</h4>
+                  <h4 className="font-medium text-gray-700 mb-2">Geographic Distribution</h4>
+                  <div className="space-y-2">
+                    {Object.entries(stats.countryStats).map(([country, count]) => (
+                      <div key={country} className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">{country}</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {count.toLocaleString()} ({((count / stats.totalRequests) * 100).toFixed(1)}%)
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Use Cases */}
+                <div>
+                  <h4 className="font-medium text-gray-700 mb-2">Use Cases</h4>
                   <div className="space-y-2">
                     {Object.entries(stats.useCaseStats).map(([useCase, count]) => (
                       <div key={useCase} className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 rounded-full bg-indigo-500 mr-2"></div>
-                          <span className="text-sm text-gray-600">{useCase}</span>
-                        </div>
+                        <span className="text-sm text-gray-600">{useCase}</span>
                         <span className="text-sm font-medium text-gray-900">
-                          {count.toLocaleString()}
+                          {count.toLocaleString()} ({((count / stats.totalRequests) * 100).toFixed(1)}%)
                         </span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* User Types Summary Table */}
+                {/* User Types */}
                 <div>
-                  <h4 className="font-medium text-gray-700 mb-4">User Types Breakdown</h4>
+                  <h4 className="font-medium text-gray-700 mb-2">User Types</h4>
                   <div className="space-y-2">
-                    {Object.entries(stats.userTypeStats).map(([userType, count]) => (
-                      <div key={userType} className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                          <span className="text-sm text-gray-600">
-                            {userType.replace(/_/g, ' ')}
-                          </span>
-                        </div>
+                    {Object.entries(stats.userTypeStats).map(([type, count]) => (
+                      <div key={type} className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">{type.replace(/_/g, ' ')}</span>
                         <span className="text-sm font-medium text-gray-900">
-                          {count.toLocaleString()}
+                          {count.toLocaleString()} ({((count / stats.totalRequests) * 100).toFixed(1)}%)
                         </span>
                       </div>
                     ))}
                   </div>
-                </div>
-              </div>
-
-              {/* Geographic Distribution */}
-              <div className="mt-8 border-t pt-6">
-                <h4 className="font-medium text-gray-700 mb-4">Geographic Distribution</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  {Object.entries(stats.countryStats).map(([country, count]) => (
-                    <div key={country} className="bg-gray-50 rounded-lg p-4">
-                      <div className="text-sm text-gray-600">{country}</div>
-                      <div className="text-lg font-medium text-gray-900">
-                        {count.toLocaleString()} requests
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {((count / stats.totalRequests) * 100).toFixed(1)}% of total
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
